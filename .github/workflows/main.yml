@@ -1,0 +1,28 @@
+name: Daily Menu Alarm
+
+on:
+  schedule:
+    # 한국 시간 아침 6시 = 세계 표준시(UTC) 전날 21시
+    - cron: '0 21 * * *'
+  workflow_dispatch: # 이 줄이 있어야 수동으로 테스트 가능함
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: 파이썬 설치
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: 라이브러리 설치
+      run: |
+        pip install requests beautifulsoup4
+        
+    - name: 식단 알림 보내기
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: python main.py
