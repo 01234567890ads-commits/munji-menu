@@ -4,7 +4,7 @@ import os
 import datetime
 import urllib3
 
-# 보안 경고 무시 설정 (학교 사이트 접속 시 인증서 문제 해결)
+# 보안 경고 무시 설정
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 1. 한국 시간(KST) 설정
@@ -30,50 +30,57 @@ def get_menu():
     }
 
     try:
-        # verify=False 옵션 추가 (SSL 인증서 오류 무시)
         response = requests.get(url, headers=headers, verify=False)
         response.encoding = 'utf-8'
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # [수정된 부분] 특정 이름(class)이 아니라, '중식'이라는 단어가 있는 표를 찾습니다.
+        # '중식'이라는 단어가 있는 표 찾기
         target_table = None
         tables = soup.find_all('table')
-        
         for table in tables:
             if "중식" in table.get_text():
                 target_table = table
                 break
         
         if not target_table:
-            # 디버깅용: 페이지 제목이라도 가져와 봅니다.
-            page_title = soup.title.get_text().strip() if soup.title else "제목 없음"
-            return f"🚫 **{today} 식단표를 못 찾았습니다.**\n접속한 페이지 제목: {page_title}\n직접 링크 확인: <{url}>"
+            return f"🚫 **{today} 식단표를 못 찾았습니다.**\n링크 확인: <{url}>"
 
         menu_text = f"🍚 **{today} 문지캠퍼스 식단** 🍚\n"
         menu_text += f"바로가기: <{url}>\n\n"
         
         rows = target_table.find_all('tr')
         
-        # 보통 첫 번째 줄(인덱스 0)은 헤더, 두 번째 줄(인덱스 1)이 오늘의 메뉴입니다.
-        # 하지만 문지캠퍼스 테이블 구조가 날짜별로 다를 수 있어 '오늘 날짜'가 있는 행을 찾거나
-        # 단순히 가장 첫 번째 데이터 행을 가져옵니다.
-        
+        # 오늘 날짜 행 찾기
         today_row = None
         for row in rows:
-            # 만약 행 안에 오늘 날짜(MM/DD)가 있거나, 그냥 데이터가 있는 첫 행을 씁니다.
             cells = row.find_all('td')
-            if len(cells) >= 3: # 조식/중식/석식 칸이 다 있는 경우
+            if len(cells) >= 3:
                 today_row = row
                 break
         
         if not today_row:
-             # 날짜 행을 못 찾으면 그냥 두 번째 행(rows[1])을 시도
              today_row = rows[1]
 
         cells = today_row.find_all('td')
 
-        # 점심 (Lunch) - 보통 두 번째 칸 (인덱스 1)
+        # --- 여기부터 아침/점심/저녁 추출 ---
+        
+        # 1. 아침 (Breakfast) - 첫 번째 칸 (인덱스 0)
+        try:
+            breakfast_td = cells[0]
+            for br in breakfast_td.find_all("br"):
+                br.replace_with("\n")
+            breakfast = breakfast_td.get_text().strip()
+            # 내용이 없으면 빈칸 처리
+            if breakfast:
+                menu_text += f"🍳 **[아침]**\n{breakfast}\n\n"
+            else:
+                menu_text += f"🍳 **[아침]** 운영 안함/정보 없음\n\n"
+        except:
+            menu_text += "🍳 **[아침]** 정보 없음\n\n"
+
+        # 2. 점심 (Lunch) - 두 번째 칸 (인덱스 1)
         try:
             lunch_td = cells[1]
             for br in lunch_td.find_all("br"):
@@ -83,7 +90,7 @@ def get_menu():
         except:
             menu_text += "☀️ **[점심]** 정보 없음\n\n"
 
-        # 저녁 (Dinner) - 보통 세 번째 칸 (인덱스 2)
+        # 3. 저녁 (Dinner) - 세 번째 칸 (인덱스 2)
         try:
             dinner_td = cells[2]
             for br in dinner_td.find_all("br"):
