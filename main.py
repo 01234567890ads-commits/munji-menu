@@ -78,14 +78,14 @@ def get_menu_for_date(target_date: datetime.date) -> str:
             None,
         )
         if not target_table:
-            return f"**{date_str} ({weekday_label})** 식단 정보 없음\n"
+            return f"**{date_str} ({weekday_label}요일)** 식단 정보 없음\n"
 
         today_row = next(
             (row for row in target_table.find_all("tr") if len(row.find_all("td")) >= 3),
             None,
         )
         if not today_row:
-            return f"**{date_str} ({weekday_label})** 식단 데이터 없음\n"
+            return f"**{date_str} ({weekday_label}요일)** 식단 데이터 없음\n"
 
         cells = today_row.find_all("td")
         meal_slots = [
@@ -101,13 +101,18 @@ def get_menu_for_date(target_date: datetime.date) -> str:
                 content = text if text else "운영 안함"
             except IndexError:
                 content = "정보 없음"
-            lines.append(f"{emoji} [{name}] {content}")
+            # 이모지와 식사 종류를 헤더로, 내용은 다음 줄에
+            lines.append(f"{emoji} **[{name}]**")
+            lines.append(content)
+            lines.append("")  # 아침/점심/저녁 사이 빈 줄
+
+        lines.append("─────────────────")  # 날짜 구분선
         lines.append("")
 
         return "\n".join(lines)
 
     except Exception as e:
-        return f"**{date_str} ({weekday_label})** 오류: {e}\n"
+        return f"**{date_str} ({weekday_label}요일)** 오류: {e}\n"
 
 
 def build_message(today: datetime.date) -> str:
